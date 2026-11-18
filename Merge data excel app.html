@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เครื่องมือรวมไฟล์ CSV และคำนวณค่าเฉลี่ย Grid Code (ตามคอลัมน์ Name)</title>
+    <!-- เรียกใช้ PapaParse สำหรับจัดการ CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2e7d32;
+            --primary-hover: #1b5e20;
+            --bg-color: #f4f6f4;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --text-muted: #666666;
+            --border-color: #e0e0e0;
+            --accent-color: #00796b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            border: 1px solid var(--border-color);
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Upload Zone */
+        .upload-zone {
+            border: 2px dashed #a5d6a7;
+            background-color: #f1f8e9;
+            border-radius: 10px;
+            padding: 30px 20px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .upload-zone svg {
+            width: 40px;
+            height: 40px;
+            fill: var(--primary-color);
+            margin-bottom: 10px;
+        }
+
+        .upload-zone p {
+            font-size: 15px;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+
+        /* File List */
+        .file-list {
+            margin-top: 15px;
+            max-height: 150px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 5px;
+            background: #fafafa;
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 12px;
+            background: white;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            margin-bottom: 5px;
+            font-size: 13px;
+        }
+
+        /* Action Buttons */
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-primary:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .btn-success {
+            background-color: #00796b;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #004d40;
+        }
+
+        .btn-select {
+            background-color: #1976d2;
+            color: white;
+            margin-bottom: 15px;
+        }
+        .btn-select:hover {
+            background-color: #115293;
+        }
+
+        /* Dashboard Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-card {
+            background: #f9f9f9;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .stat-val {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 5px;
+        }
+
+        .stat-lbl {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            margin-top: 15px;
+            display: none;
+        }
+
+        .progress-bar-bg {
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            height: 8px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            background-color: var(--primary-color);
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 5px;
+            text-align: right;
+            font-weight: bold;
+        }
+
+        /* Table Style */
+        .table-container {
+            overflow-x: auto;
+            margin-top: 15px;
+            max-height: 400px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f1f1f1;
+            color: #333;
+            padding: 12px 10px;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #eeeeee;
+            white-space: nowrap;
+        }
+
+        tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+
+        /* Alert and Status */
+        .alert {
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .alert-success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+
+        .alert-danger {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+
+        /* Loader */
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 3px solid var(--primary-color);
+            width: 16px;
+            height: 16px;
+            -webkit-animation: spin 1s linear infinite;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>เครื่องมือรวมไฟล์ CSV & คำนวณค่าเฉลี่ย Grid Code</h1>
+        <p>รวมข้อมูลตามคอลัมน์ <strong>Name</strong> และคำนวณค่าเฉลี่ย <strong>grid_code</strong> อัตโนมัติ</p>
+    </header>
+
+    <div class="card">
+        <div class="card-title">
+            ขั้นตอนที่ 1: เลือกไฟล์ CSV ที่ต้องการประมวลผล
+        </div>
+        
+        <!-- เพิ่มปุ่มเลือกไฟล์แบบชัดเจน -->
+        <button class="btn btn-select" onclick="document.getElementById('fileInput').click()">
+            📂คลิกที่นี่เพื่อเลือกไฟล์ CSV (เลือกได้หลายไฟล์พร้อมกัน)
+        </button>
+
+        <div class="upload-zone" id="dropZone">
+            <svg viewBox="0 0 24 24">
+                <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+            </svg>
+            <p>หรือลากไฟล์ CSV มาวางที่นี่</p>
+        </div>
+        <input type="file" id="fileInput" multiple accept=".csv">
+
+        <div id="fileListContainer" style="display:none;">
+            <div style="font-size: 13px; font-weight: bold; margin-bottom: 5px;">ไฟล์ที่เลือกแล้ว:</div>
+            <div class="file-list" id="fileList"></div>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn btn-primary" id="btnProcess" disabled>
+                ประมวลผลและรวมไฟล์
+            </button>
+        </div>
+
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progressBar"></div>
+            </div>
+            <div class="progress-text" id="progressText">เตรียมการ...</div>
+        </div>
+
+        <div class="alert alert-success" id="alertSuccess">ประมวลผลเสร็จสิ้น!</div>
+        <div class="alert alert-danger" id="alertDanger" style="white-space: pre-wrap;"></div>
+    </div>
+
+    <!-- Results Section -->
+    <div id="resultSection" class="card" style="display: none;">
+        <div class="card-title">
+            ขั้นตอนที่ 2: ตรวจสอบข้อมูลและดาวน์โหลดผลลัพธ์
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-val" id="statFiles">0</div>
+                <div class="stat-lbl">จำนวนไฟล์</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val" id="statRows">0</div>
+                <div class="stat-lbl">จำนวนแถวที่อ่านได้</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val" id="statUnique">0</div>
+                <div class="stat-lbl">Name ที่ไม่ซ้ำ</div>
+            </div>
+        </div>
+
+        <div style="margin-top: 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div style="font-weight: 600;">ตัวอย่างผลลัพธ์ (50 แถวแรก):</div>
+            <button class="btn btn-success" id="btnExport" style="flex: none;">
+                ดาวน์โหลดไฟล์ผลลัพธ์ .CSV
+            </button>
+        </div>
+
+        <div class="table-container">
+            <table id="previewTable">
+                <thead id="tableHeader"></thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    let selectedFiles = [];
+    let processedDataHeaders = [];
+    let finalOutputRows = []; 
+
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const fileList = document.getElementById('fileList');
+    const btnProcess = document.getElementById('btnProcess');
+    const btnExport = document.getElementById('btnExport');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    const alertSuccess = document.getElementById('alertSuccess');
+    const alertDanger = document.getElementById('alertDanger');
+    const resultSection = document.getElementById('resultSection');
+
+    // Drag and Drop Handlers
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, e => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, e => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+        });
+    });
+
+    dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            handleFiles(e.dataTransfer.files);
+        }
+    });
+
+    fileInput.addEventListener('change', e => {
+        if (e.target.files && e.target.files.length > 0) {
+            handleFiles(e.target.files);
+        }
+    });
+
+    function handleFiles(files) {
+        const csvFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.csv') || f.type === 'text/csv' || f.type === 'application/vnd.ms-excel');
+        if (csvFiles.length === 0) {
+            showError("กรุณาเลือกไฟล์ที่เป็นนามสกุล .csv เท่านั้น");
+            return;
+        }
+        
+        selectedFiles = csvFiles;
+        fileList.innerHTML = '';
+        selectedFiles.forEach(file => {
+            const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+            const item = document.createElement('div');
+            item.className = 'file-item';
+            item.innerHTML = `<span>📄 ${file.name}</span><span style="color:#666;">${sizeMB} MB</span>`;
+            fileList.appendChild(item);
+        });
+
+        document.getElementById('fileListContainer').style.display = 'block';
+        btnProcess.disabled = false;
+        hideAlerts();
+        resultSection.style.display = 'none';
+    }
+
+    btnProcess.addEventListener('click', async () => {
+        if (selectedFiles.length === 0) return;
+
+        btnProcess.disabled = true;
+        btnProcess.innerHTML = '<div class="loader" style="border-top-color: white;"></div> กำลังประมวลผล...';
+        progressContainer.style.display = 'block';
+        hideAlerts();
+
+        let groups = {}; 
+        let totalRowsRead = 0;
+        let globalHeaders = null;
+        
+        try {
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const file = selectedFiles[i];
+                const pct = Math.round((i / selectedFiles.length) * 100);
+                progressBar.style.width = pct + '%';
+                progressText.innerText = `กำลังอ่านไฟล์ที่ ${i+1}/${selectedFiles.length}: ${file.name}`;
+
+                const parsedResult = await parseCsvWithPapa(file);
+                
+                const data = parsedResult.data;
+                if (data.length === 0) continue;
+
+                const fileHeaders = Object.keys(data[0]);
+                if (!globalHeaders) {
+                    globalHeaders = fileHeaders; 
+                }
+
+                let nameKey = null;
+                let gridCodeKey = null;
+
+                for (let h of fileHeaders) {
+                    const cleanH = h.toLowerCase().trim().replace(/^[﻿​]/g, '');
+                    if (cleanH === 'name') nameKey = h;
+                    if (cleanH === 'grid_code' || cleanH === 'gridcode') gridCodeKey = h;
+                }
+
+                if (!nameKey || !gridCodeKey) {
+                    throw new Error(`ไม่พบคอลัมน์ "Name" หรือ "grid_code" ในไฟล์: ${file.name}\n(หัวคอลัมน์ที่พบในไฟล์นี้คือ: ${fileHeaders.join(', ')})`);
+                }
+
+                for (let r = 0; r < data.length; r++) {
+                    const row = data[r];
+                    const nameVal = row[nameKey] ? String(row[nameKey]).trim() : '';
+                    if (!nameVal) continue; 
+
+                    totalRowsRead++;
+                    const gridCode = parseFloat(row[gridCodeKey]);
+
+                    if (!groups[nameVal]) {
+                        groups[nameVal] = {
+                            sumGridCode: 0,
+                            count: 0,
+                            rowData: { ...row }
+                        };
+                    }
+
+                    if (!isNaN(gridCode)) {
+                        groups[nameVal].sumGridCode += gridCode;
+                        groups[nameVal].count += 1;
+                    }
+                }
+            }
+
+            progressBar.style.width = '100%';
+            progressText.innerText = 'กำลังคำนวณและสรุปผล...';
+
+            processedDataHeaders = [...globalHeaders, 'combined_count'];
+            finalOutputRows = [];
+
+            let outNameKey, outGridCodeKey, outSpvKey;
+            for (let h of globalHeaders) {
+                const cleanH = h.toLowerCase().trim().replace(/^[﻿​]/g, '');
+                if (cleanH === 'name') outNameKey = h;
+                if (cleanH === 'grid_code' || cleanH === 'gridcode') outGridCodeKey = h;
+                if (cleanH === 'spv') outSpvKey = h;
+            }
+
+            for (let nameVal in groups) {
+                const grp = groups[nameVal];
+                const avgGridCode = grp.count > 0 ? (grp.sumGridCode / grp.count) : 0;
+                
+                let finalRow = { ...grp.rowData };
+                
+                if (outGridCodeKey) {
+                    finalRow[outGridCodeKey] = avgGridCode.toFixed(8);
+                }
+                
+                if (outSpvKey && finalRow[outSpvKey] !== undefined && finalRow[outSpvKey] !== null) {
+                    let spvVal = String(finalRow[outSpvKey]).trim();
+                    if (/^\d{1,2}$/.test(spvVal)) {
+                        spvVal = spvVal.padStart(3, '0');
+                    }
+                    finalRow[outSpvKey] = spvVal;
+                }
+                
+                finalRow['combined_count'] = grp.count;
+                finalOutputRows.push(finalRow);
+            }
+
+            document.getElementById('statFiles').innerText = selectedFiles.length.toLocaleString();
+            document.getElementById('statRows').innerText = totalRowsRead.toLocaleString();
+            document.getElementById('statUnique').innerText = finalOutputRows.length.toLocaleString();
+
+            renderTablePreview(processedDataHeaders, finalOutputRows.slice(0, 50));
+
+            alertSuccess.style.display = 'block';
+            resultSection.style.display = 'block';
+            resultSection.scrollIntoView({ behavior: 'smooth' });
+
+        } catch (err) {
+            showError(err.message || "เกิดข้อผิดพลาดในการประมวลผล");
+        } finally {
+            btnProcess.disabled = false;
+            btnProcess.innerHTML = 'ประมวลผลและรวมไฟล์';
+            progressContainer.style.display = 'none';
+        }
+    });
+
+    function parseCsvWithPapa(file) {
+        return new Promise((resolve, reject) => {
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: (results) => resolve(results),
+                error: (error) => reject(error)
+            });
+        });
+    }
+
+    function renderTablePreview(headers, rows) {
+        const thead = document.getElementById('tableHeader');
+        const tbody = document.getElementById('tableBody');
+        thead.innerHTML = '';
+        tbody.innerHTML = '';
+
+        const trHead = document.createElement('tr');
+        headers.forEach(h => {
+            const th = document.createElement('th');
+            th.innerText = h;
+            trHead.appendChild(th);
+        });
+        thead.appendChild(trHead);
+
+        rows.forEach(rowObj => {
+            const tr = document.createElement('tr');
+            headers.forEach(h => {
+                const td = document.createElement('td');
+                td.innerText = (rowObj[h] !== undefined && rowObj[h] !== null) ? rowObj[h] : '';
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+    }
+
+    btnExport.addEventListener('click', () => {
+        if (finalOutputRows.length === 0) return;
+        
+        let outSpvKey = null;
+        let outNameKey = null;
+        for (let h of processedDataHeaders) {
+            const cleanH = h.toLowerCase().trim().replace(/^[﻿​]/g, '');
+            if (cleanH === 'spv') outSpvKey = h;
+            if (cleanH === 'name') outNameKey = h;
+        }
+
+        const dataToExport = finalOutputRows.map(row => {
+            let exportRow = { ...row };
+            
+            if (outSpvKey && exportRow[outSpvKey] !== undefined && exportRow[outSpvKey] !== null) {
+                let val = String(exportRow[outSpvKey]).trim();
+                exportRow[outSpvKey] = '="' + val + '"';
+            }
+
+            if (outNameKey && exportRow[outNameKey] !== undefined && exportRow[outNameKey] !== null) {
+                let val = String(exportRow[outNameKey].trim());
+                exportRow[outNameKey] = '="' + val + '"';
+            }
+            return exportRow;
+        });
+
+        const csv = Papa.unparse({
+            fields: processedDataHeaders,
+            data: dataToExport
+        });
+
+        const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        
+        const now = new Date();
+        const dateStr = now.toISOString().slice(0,10).replace(/-/g,"");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `merged_name_${dateStr}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    });
+
+    function showError(msg) {
+        alertDanger.innerText = "❌ ข้อผิดพลาด: " + msg;
+        alertDanger.style.display = 'block';
+    }
+
+    function hideAlerts() {
+        alertSuccess.style.display = 'none';
+        alertDanger.style.display = 'none';
+    }
+</script>
+</body>
+</html>
